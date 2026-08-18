@@ -1,0 +1,9 @@
+.venv/
+data/config.json
+data/jobs/
+data/huggingface/
+data/shards/
+data/launcher_python.txt
+__pycache__/
+*.pyc
+
