@@ -619,6 +619,47 @@ class WorkerManager:
                 message = body
             raise RuntimeError(message or f"模型服务返回 HTTP {exc.code}") from exc
 
+    def stream_request(self, method: str, path: str, payload: dict[str, Any] | None = None, timeout: int = 24 * 60 * 60):
+        if not self.port:
+            raise RuntimeError("模型服务未启动。")
+        data = None
+        headers = {"Accept": "application/x-ndjson"}
+        if payload is not None:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            headers["Content-Type"] = "application/json; charset=utf-8"
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}{path}",
+            data=data,
+            method=method,
+            headers=headers,
+        )
+        try:
+            response = urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            try:
+                message = json.loads(body).get("error", body)
+            except json.JSONDecodeError:
+                message = body
+            raise RuntimeError(message or f"模型服务返回 HTTP {exc.code}") from exc
+
+        def events():
+            try:
+                for raw in iter(response.readline, b""):
+                    line = raw.decode("utf-8", errors="replace").strip()
+                    if line:
+                        yield json.loads(line)
+            finally:
+                response.close()
+
+        return events()
+
+    def cancel_generation(self) -> None:
+        try:
+            self.request("POST", "/cancel", {}, timeout=2)
+        except Exception:
+            pass
+
     def status(self) -> dict[str, Any]:
         process = self.process
         base = {

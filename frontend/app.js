@@ -9,6 +9,7 @@ const state = {
   activeJob: null,
   jobPoll: null,
   busy: false,
+  chatAbort: null,
 };
 
 const translations = {
@@ -19,7 +20,7 @@ const translations = {
     dependencySection: "依赖安装", dependencyDesc: "按需安装运行本地模型所需的 Python 包。", waitingDetect: "等待检测", detected: "已检测", installed: "已安装", notInstalled: "未安装", optional: "可选", pytorch: "PyTorch", pytorchDesc: "模型运行时和 CUDA 支持", airllm: "AirLLM", airllmDesc: "逐层加载和本地推理", bnb: "bitsandbytes", bnbDesc: "启用 4bit / 8bit 压缩时需要", torchChannel: "PyTorch 安装渠道", torchHelp: "优先选择与显卡驱动兼容的 CUDA wheel；也可以保留自动安装。", autoPypi: "自动使用 PyPI", cuda128: "CUDA 12.8 官方源", cuda126: "CUDA 12.6 官方源", cuda124: "CUDA 12.4 官方源", cpuSource: "CPU 官方源", installTask: "安装任务", installSelected: "安装选中的依赖", installing: "安装中…",
     modelSection: "模型来源与下载", modelDesc: "模型下载和切分会在本地后台任务中执行。", notReady: "未准备", ready: "已就绪", serviceRunning: "服务运行中", hfModel: "Hugging Face 模型", localModel: "本地模型目录", modelId: "模型 ID", modelIdHelp: "AirLLM 通过 Hugging Face Hub 获取模型文件。", localModelPath: "本地模型目录", localModelPlaceholder: "选择包含 config.json 的目录", localModelHelp: "目录应包含 config.json 和模型权重文件。", hfEndpoint: "Hugging Face 镜像地址", hfEndpointHelp: "例如 https://hf-mirror.com；会设置 HF_ENDPOINT。", hfToken: "Hugging Face Token", tokenPlaceholder: "可选，gated 模型需要", tokenHelp: "Token 只保存在本机配置文件。", tokenSavedHelp: "已保存 Token；留空会保留现有值。", httpProxy: "HTTP 代理", httpsProxy: "HTTPS 代理", cacheDir: "Hugging Face 缓存目录", shardsDir: "AirLLM 分层目录", prepareModel: "下载并准备模型", preparing: "准备中…", loadModel: "加载模型", loading: "加载中…", stopModel: "停止模型", stopped: "模型服务已停止", modelTask: "模型任务", dependencyTask: "安装任务", queued: "排队中", running: "运行中", completed: "已完成", error: "失败", taskStarting: "正在启动", taskWaiting: "准备中",
     inferenceSection: "推理参数", inferenceDesc: "这些参数会应用到问答页的每次生成。", adjustable: "可随时调整", device: "运行设备", autoDevice: "自动选择", cudaDevice: "CUDA 0", cpuDevice: "CPU", maxSeqLen: "上下文长度", maxNewTokens: "最大新 token", compression: "分层压缩", compressionOff: "关闭", prefetch: "启用 prefetching", deleteOriginal: "切分后删除原始权重",
-    chatModel: "本地模型", modelReady: "模型已就绪", chatModelUnloaded: "模型未加载", chatNew: "新的本地对话", chatLocalNote: "模型加载后，回答会留在这台电脑上。", chatNeedLoad: "请先在配置中心加载一个模型。", promptGpu: "解释 AirLLM 的显存机制", promptConfig: "检查模型配置", promptPython: "写一个 Python 示例", clearChat: "清空对话", send: "发送消息", chatLoad: "加载模型", composerPlaceholder: "给本地模型发消息…", localAirllm: "本地 AirLLM", composerHint: "Enter 发送 · Shift + Enter 换行", you: "你", assistant: "AirLLM", tokens: "tokens", seconds: "s", requestFailed: "请求失败：", pleaseLoad: "请先加载模型", noResponse: "（模型没有返回内容）", languageSaved: "语言设置已保存", environmentDetected: "Python 环境检测完成", statusRefreshed: "状态已刷新", cannotConnect: "无法连接本地 Python 服务，请关闭并重新运行 start.bat。",
+    chatModel: "本地模型", modelReady: "模型已就绪", chatModelUnloaded: "模型未加载", chatNew: "新的本地对话", chatLocalNote: "模型加载后，回答会留在这台电脑上。", chatNeedLoad: "请先在配置中心加载一个模型。", promptGpu: "解释 AirLLM 的显存机制", promptConfig: "检查模型配置", promptPython: "写一个 Python 示例", clearChat: "清空对话", send: "发送消息", stopGenerating: "停止生成", generationStopped: "已停止生成", streamDisconnected: "生成连接意外中断", chatLoad: "加载模型", composerPlaceholder: "给本地模型发消息…", localAirllm: "本地 AirLLM", composerHint: "Enter 发送 · Shift + Enter 换行", you: "你", assistant: "AirLLM", tokens: "tokens", seconds: "s", requestFailed: "请求失败：", pleaseLoad: "请先加载模型", noResponse: "（模型没有返回内容）", languageSaved: "语言设置已保存", environmentDetected: "Python 环境检测完成", statusRefreshed: "状态已刷新", cannotConnect: "无法连接本地 Python 服务，请关闭并重新运行 start.bat。",
   },
   "en-US": {
     mainNav: "Main navigation", brandCaption: "Local model workspace", navConfig: "Configuration", navChat: "Local chat", sidebarOnline: "Local service online", sidebarConnecting: "Connecting to local service", sidebarOffline: "Service connection failed", localOnly: "Bound to 127.0.0.1", newChat: "New chat", recentChats: "Recent chats", local: "Local", currentChat: "New local chat",
@@ -28,7 +29,7 @@ const translations = {
     dependencySection: "Dependencies", dependencyDesc: "Install only the Python packages needed for the local runtime.", waitingDetect: "Waiting for detection", detected: "Detected", installed: "Installed", notInstalled: "Not installed", optional: "Optional", pytorch: "PyTorch", pytorchDesc: "Runtime and CUDA support", airllm: "AirLLM", airllmDesc: "Layer streaming and local inference", bnb: "bitsandbytes", bnbDesc: "Required for 4bit / 8bit compression", torchChannel: "PyTorch install channel", torchHelp: "Choose a CUDA wheel compatible with your driver, or keep automatic installation.", autoPypi: "Automatic PyPI", cuda128: "CUDA 12.8 official index", cuda126: "CUDA 12.6 official index", cuda124: "CUDA 12.4 official index", cpuSource: "CPU official index", installTask: "Install task", installSelected: "Install selected packages", installing: "Installing…",
     modelSection: "Model source and download", modelDesc: "Downloads and layer preparation run as local background jobs.", notReady: "Not prepared", ready: "Ready", serviceRunning: "Service running", hfModel: "Hugging Face model", localModel: "Local model directory", modelId: "Model ID", modelIdHelp: "AirLLM fetches model files through the Hugging Face Hub.", localModelPath: "Local model directory", localModelPlaceholder: "Choose a directory containing config.json", localModelHelp: "The directory should contain config.json and model weights.", hfEndpoint: "Hugging Face endpoint", hfEndpointHelp: "For example https://hf-mirror.com; sets HF_ENDPOINT.", hfToken: "Hugging Face token", tokenPlaceholder: "Optional; required for gated models", tokenHelp: "The token is stored only in the local config file.", tokenSavedHelp: "A token is saved; leave blank to keep it.", httpProxy: "HTTP proxy", httpsProxy: "HTTPS proxy", cacheDir: "Hugging Face cache directory", shardsDir: "AirLLM layer directory", prepareModel: "Download and prepare model", preparing: "Preparing…", loadModel: "Load model", loading: "Loading…", stopModel: "Stop model", stopped: "Model service stopped", modelTask: "Model task", dependencyTask: "Install task", queued: "Queued", running: "Running", completed: "Completed", error: "Failed", taskStarting: "Starting", taskWaiting: "Preparing",
     inferenceSection: "Generation parameters", inferenceDesc: "These values apply to each response in the chat view.", adjustable: "Adjustable", device: "Device", autoDevice: "Auto select", cudaDevice: "CUDA 0", cpuDevice: "CPU", maxSeqLen: "Context length", maxNewTokens: "Max new tokens", compression: "Layer compression", compressionOff: "Off", prefetch: "Enable prefetching", deleteOriginal: "Delete original weights after splitting",
-    chatModel: "Local model", modelReady: "Model ready", chatModelUnloaded: "Model not loaded", chatNew: "New local chat", chatLocalNote: "Responses stay on this computer after the model is loaded.", chatNeedLoad: "Load a model from Configuration first.", promptGpu: "Explain AirLLM memory usage", promptConfig: "Check model configuration", promptPython: "Write a Python inference example", clearChat: "Clear chat", send: "Send message", chatLoad: "Load model", composerPlaceholder: "Message the local model…", localAirllm: "Local AirLLM", composerHint: "Enter to send · Shift + Enter for a new line", you: "You", assistant: "AirLLM", tokens: "tokens", seconds: "s", requestFailed: "Request failed: ", pleaseLoad: "Load a model first", noResponse: "(The model returned no content)", languageSaved: "Language saved", environmentDetected: "Python environment detected", statusRefreshed: "Status refreshed", cannotConnect: "Cannot connect to the local Python service. Restart start.bat.",
+    chatModel: "Local model", modelReady: "Model ready", chatModelUnloaded: "Model not loaded", chatNew: "New local chat", chatLocalNote: "Responses stay on this computer after the model is loaded.", chatNeedLoad: "Load a model from Configuration first.", promptGpu: "Explain AirLLM memory usage", promptConfig: "Check model configuration", promptPython: "Write a Python inference example", clearChat: "Clear chat", send: "Send message", stopGenerating: "Stop generating", generationStopped: "Generation stopped", streamDisconnected: "The generation stream ended unexpectedly", chatLoad: "Load model", composerPlaceholder: "Message the local model…", localAirllm: "Local AirLLM", composerHint: "Enter to send · Shift + Enter for a new line", you: "You", assistant: "AirLLM", tokens: "tokens", seconds: "s", requestFailed: "Request failed: ", pleaseLoad: "Load a model first", noResponse: "(The model returned no content)", languageSaved: "Language saved", environmentDetected: "Python environment detected", statusRefreshed: "Status refreshed", cannotConnect: "Cannot connect to the local Python service. Restart start.bat.",
   },
 };
 
@@ -71,9 +72,10 @@ function applyLanguage() {
   $("page-title").textContent = $("chat-view")?.classList.contains("is-active") ? t("chatTitle") : t("configTitle");
   setAttribute(".language-control", "title", t("language")); setAttribute("#language-select", "aria-label", t("language")); setAttribute("#refresh-button", "title", t("refresh")); setAttribute("#refresh-button", "aria-label", t("refresh")); setAttribute(".segmented-control", "aria-label", t("modelSource")); setAttribute(".prompt-suggestions", "aria-label", t("shortcuts"));
   setAttribute("#choose-python-button", "title", t("choosePython")); setAttribute("#choose-python-button", "aria-label", t("choosePython")); setAttribute("#choose-venv-button", "title", t("chooseDirectory")); setAttribute("#choose-venv-button", "aria-label", t("chooseDirectory")); setAttribute("#choose-model-button", "title", t("chooseModelDirectory")); setAttribute("#choose-model-button", "aria-label", t("chooseModelDirectory")); setAttributes("[data-pick-target]", "title", t("chooseDirectory")); setAttributes("[data-pick-target]", "aria-label", t("chooseDirectory"));
-  setAttribute("#chat-model-select", "title", t("chatModel")); setAttribute("#clear-chat-button", "title", t("clearChat")); setAttribute("#clear-chat-button", "aria-label", t("clearChat")); setAttribute("#send-button", "title", t("send")); setAttribute("#send-button", "aria-label", t("send")); setAttribute("#chat-input", "aria-label", t("send"));
+  setAttribute("#chat-model-select", "title", t("chatModel")); setAttribute("#clear-chat-button", "title", t("clearChat")); setAttribute("#clear-chat-button", "aria-label", t("clearChat")); setAttribute("#chat-input", "aria-label", t("send"));
   $("token-help").textContent = state.config.hf_token_saved ? t("tokenSavedHelp") : t("tokenHelp");
   const serviceText = $("service-state")?.querySelector("span:last-child"); if (serviceText) serviceText.textContent = state.model.running ? t("serviceRunning") : t("serviceOnline");
+  setChatRunning(state.busy);
   refreshIcons();
 }
 
@@ -319,19 +321,142 @@ function renderMessage(role, content, meta = "") {
   $("chat-stage").append(row); $("chat-empty").hidden = true; $("chat-stage").scrollTop = $("chat-stage").scrollHeight; return row;
 }
 
-function clearChat() { state.messages = []; $("chat-stage").querySelectorAll(".message-row").forEach((row) => row.remove()); $("chat-empty").hidden = false; }
+function setChatRunning(running) {
+  state.busy = running;
+  const send = $("send-button");
+  const input = $("chat-input");
+  const clear = $("clear-chat-button");
+  if (send) {
+    send.classList.toggle("is-stop", running);
+    send.innerHTML = `<i data-lucide="${running ? "square" : "arrow-up"}"></i>`;
+    send.title = t(running ? "stopGenerating" : "send");
+    send.setAttribute("aria-label", t(running ? "stopGenerating" : "send"));
+  }
+  if (input) input.disabled = running;
+  if (clear) clear.disabled = running;
+  refreshIcons();
+}
+
+function setMessageMeta(row, text) {
+  let meta = row.querySelector(".message-meta");
+  if (!meta) {
+    meta = document.createElement("div");
+    meta.className = "message-meta";
+    row.querySelector(".message-content").append(meta);
+  }
+  meta.textContent = text;
+}
+
+function scrollChat() {
+  const stage = $("chat-stage");
+  stage.scrollTop = stage.scrollHeight;
+}
+
+async function streamChat(payload, onEvent, signal) {
+  const response = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/x-ndjson" },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || `${t("requestFailed")}${response.status}`);
+  }
+  if (!response.body) {
+    await api("/api/chat/cancel", { method: "POST", body: {} }).catch(() => null);
+    return false;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let completed = false;
+  const handleLine = (line) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line);
+    if (event.type === "error") throw new Error(event.error || t("streamDisconnected"));
+    if (event.type === "done") completed = true;
+    onEvent(event);
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    lines.forEach(handleLine);
+    if (done) break;
+  }
+  handleLine(buffer);
+  if (!completed) throw new Error(t("streamDisconnected"));
+  return true;
+}
+
+async function stopChat() {
+  if (!state.busy) return;
+  state.chatAbort?.abort();
+  await api("/api/chat/cancel", { method: "POST", body: {} }).catch(() => null);
+}
+
+function clearChat() {
+  if (state.busy) return;
+  state.messages = []; $("chat-stage").querySelectorAll(".message-row").forEach((row) => row.remove()); $("chat-empty").hidden = false;
+}
 
 async function sendChat(event) {
-  event.preventDefault(); const input = $("chat-input"); const text = input.value.trim(); if (!text || state.busy) return;
+  event.preventDefault();
+  if (state.busy) { await stopChat(); return; }
+  const input = $("chat-input"); const text = input.value.trim(); if (!text) return;
   if (!state.model.loaded) { toast(t("pleaseLoad"), "warn"); return; }
-  state.busy = true; input.value = ""; input.style.height = "auto"; state.messages.push({ role: "user", content: text }); renderMessage("user", text);
+  input.value = ""; input.style.height = "auto"; state.messages.push({ role: "user", content: text }); renderMessage("user", text);
   const assistantRow = renderMessage("assistant", ""); assistantRow.querySelector(".message-bubble").innerHTML = `<span class="typing-indicator"><span></span><span></span><span></span></span>`;
-  const send = $("send-button"); if (send) send.disabled = true;
+  const assistantBubble = assistantRow.querySelector(".message-bubble");
+  const controller = new AbortController();
+  let assistantText = "";
+  let metadata = null;
+  let intentionallyStopped = false;
+  state.chatAbort = controller;
+  setChatRunning(true);
   try {
-    const started = performance.now(); const result = await api("/api/chat", { method: "POST", body: { messages: state.messages } }); const elapsed = result.elapsed_seconds ?? ((performance.now() - started) / 1000).toFixed(1);
-    assistantRow.querySelector(".message-bubble").textContent = result.text || t("noResponse"); assistantRow.querySelector(".message-content").insertAdjacentHTML("beforeend", `<div class="message-meta">${escapeHtml(`${elapsed}${t("seconds")} · ${result.usage?.completion_tokens || 0} ${t("tokens")}`)}</div>`); state.messages.push({ role: "assistant", content: result.text || "" });
-  } catch (error) { assistantRow.querySelector(".message-bubble").textContent = `${t("requestFailed")}${error.message}`; toast(error.message, "error"); }
-  finally { state.busy = false; if (send) send.disabled = false; $("chat-stage").scrollTop = $("chat-stage").scrollHeight; }
+    const payload = { messages: state.messages };
+    const streamed = await streamChat(payload, (streamEvent) => {
+      if (streamEvent.type === "delta") {
+        assistantText += streamEvent.text || "";
+        assistantBubble.textContent = assistantText;
+        scrollChat();
+      } else if (streamEvent.type === "done") {
+        metadata = streamEvent;
+      }
+    }, controller.signal);
+    if (!streamed) {
+      const result = await api("/api/chat", { method: "POST", body: payload });
+      assistantText = result.text || "";
+      metadata = result;
+      assistantBubble.textContent = assistantText || t("noResponse");
+    } else if (!assistantText) {
+      assistantBubble.textContent = t("noResponse");
+    }
+    const elapsed = metadata?.elapsed_seconds ?? 0;
+    const tokenCount = metadata?.usage?.completion_tokens ?? 0;
+    const metaText = metadata?.cancelled ? t("generationStopped") : `${elapsed}${t("seconds")} · ${tokenCount} ${t("tokens")}`;
+    setMessageMeta(assistantRow, metaText);
+  } catch (error) {
+    intentionallyStopped = error.name === "AbortError";
+    if (intentionallyStopped) {
+      if (!assistantText) assistantBubble.textContent = t("generationStopped");
+      setMessageMeta(assistantRow, t("generationStopped"));
+    } else {
+      if (!assistantText) assistantBubble.textContent = `${t("requestFailed")}${error.message}`;
+      else setMessageMeta(assistantRow, `${t("requestFailed")}${error.message}`);
+      toast(error.message, "error");
+    }
+  } finally {
+    if (assistantText) state.messages.push({ role: "assistant", content: assistantText });
+    if (state.chatAbort === controller) state.chatAbort = null;
+    setChatRunning(false);
+    scrollChat();
+  }
 }
 
 function showView(viewId) {
@@ -351,7 +476,7 @@ async function boot() {
   $("sidebar-new-chat").addEventListener("click", () => { clearChat(); showView("chat-view"); $("chat-input").focus(); }); $("sidebar-current-chat").addEventListener("click", () => showView("chat-view"));
   qsa("[data-prompt]").forEach((button) => button.addEventListener("click", () => { $("chat-input").value = button.dataset.prompt; $("chat-input").dispatchEvent(new Event("input")); $("chat-input").focus(); }));
   $("chat-input").addEventListener("input", (event) => { const target = event.currentTarget; target.style.height = "auto"; target.style.height = `${Math.min(target.scrollHeight, 160)}px`; });
-  $("chat-input").addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); $("chat-form").requestSubmit(); } });
+  $("chat-input").addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey && !state.busy) { event.preventDefault(); $("chat-form").requestSubmit(); } });
   await refreshAll(false);
 }
 

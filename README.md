@@ -16,7 +16,8 @@ A Windows-first local management and chat interface for [AirLLM](https://github.
 - Selectively install PyTorch, AirLLM, and bitsandbytes with background task logs.
 - Configure a Hugging Face mirror, HTTP/HTTPS proxies, access token, cache directory, and AirLLM shard directory.
 - Show model download, shard preparation, and model loading progress.
-- GPT-style local chat with new chats, quick prompts, Enter-to-send, and Shift+Enter for new lines.
+- GPT-style local chat with streamed response chunks, new chats, quick prompts, Enter-to-send, and Shift+Enter for new lines.
+- Stop an in-progress generation from the chat composer; the partial response is kept in the conversation.
 - Switch the web UI between Chinese and English; the choice is saved locally.
 - Bind both the main service and inference worker to `127.0.0.1` by default.
 

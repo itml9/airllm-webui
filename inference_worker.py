@@ -8,6 +8,7 @@ import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from queue import Empty
 from typing import Any
 
 
@@ -24,6 +25,14 @@ DEVICE = "cpu"
 SERVER: ThreadingHTTPServer | None = None
 LOAD_LOCK = threading.Lock()
 GENERATE_LOCK = threading.Lock()
+CANCEL_EVENT = threading.Event()
+
+
+class CancelGeneration:
+    def __call__(self, input_ids: Any, scores: Any, **kwargs: Any) -> Any:
+        if TORCH is None:
+            return CANCEL_EVENT.is_set()
+        return TORCH.full((input_ids.shape[0],), CANCEL_EVENT.is_set(), dtype=TORCH.bool, device=input_ids.device)
 
 
 def configure_environment(config: dict[str, Any]) -> None:
@@ -112,7 +121,7 @@ def format_prompt(tokenizer: Any, messages: list[dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
-def chat(payload: dict[str, Any]) -> dict[str, Any]:
+def build_generation(payload: dict[str, Any], streamer: Any = None, stopping_criteria: Any = None) -> tuple[Any, Any, dict[str, Any], int]:
     if not STATE.get("loaded") or MODEL is None or TORCH is None:
         raise RuntimeError("模型尚未加载。")
     messages = payload.get("messages") or []
@@ -153,13 +162,21 @@ def chat(payload: dict[str, Any]) -> dict[str, Any]:
     if temperature > 0:
         generation_args["temperature"] = max(temperature, 0.01)
         generation_args["top_p"] = top_p
+    if streamer is not None:
+        generation_args["streamer"] = streamer
+    if stopping_criteria is not None:
+        generation_args["stopping_criteria"] = stopping_criteria
+    return tokenizer, input_ids, generation_args, int(input_ids.shape[-1])
+
+
+def chat(payload: dict[str, Any]) -> dict[str, Any]:
+    tokenizer, input_ids, generation_args, prompt_tokens = build_generation(payload)
 
     started = time.time()
     with GENERATE_LOCK:
         with TORCH.inference_mode():
             output = MODEL.generate(**generation_args)
     sequence = output.sequences[0]
-    prompt_tokens = input_ids.shape[-1]
     generated = sequence[prompt_tokens:]
     text = tokenizer.decode(generated, skip_special_tokens=True).strip()
     elapsed = round(time.time() - started, 2)
@@ -172,6 +189,66 @@ def chat(payload: dict[str, Any]) -> dict[str, Any]:
             "completion_tokens": int(generated.shape[-1]),
         },
     }
+
+
+def stream_chat(payload: dict[str, Any]):
+    try:
+        from transformers import StoppingCriteriaList, TextIteratorStreamer
+    except ImportError as exc:
+        raise RuntimeError("当前 Transformers 不支持流式输出，请升级到 4.49 或更高版本。") from exc
+
+    CANCEL_EVENT.clear()
+    tokenizer, input_ids, generation_args, prompt_tokens = build_generation(payload)
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=0.25)
+    generation_args["streamer"] = streamer
+    generation_args["stopping_criteria"] = StoppingCriteriaList([CancelGeneration()])
+    result: dict[str, Any] = {}
+    generation_done = threading.Event()
+    started = time.time()
+
+    def generate() -> None:
+        try:
+            with GENERATE_LOCK:
+                with TORCH.inference_mode():
+                    result["output"] = MODEL.generate(**generation_args)
+        except BaseException as exc:
+            result["error"] = exc
+            streamer.end()
+        finally:
+            generation_done.set()
+
+    thread = threading.Thread(target=generate, daemon=True)
+    thread.start()
+    try:
+        while True:
+            try:
+                piece = next(streamer)
+            except Empty:
+                if generation_done.is_set():
+                    break
+                continue
+            except StopIteration:
+                break
+            if piece:
+                yield {"type": "delta", "text": piece}
+
+        thread.join()
+        if result.get("error") is not None:
+            raise result["error"]
+        output = result.get("output")
+        sequence = getattr(output, "sequences", None)
+        generated_tokens = int(sequence.shape[-1] - prompt_tokens) if sequence is not None else 0
+        yield {
+            "type": "done",
+            "elapsed_seconds": round(time.time() - started, 2),
+            "usage": {"prompt_tokens": int(prompt_tokens), "completion_tokens": generated_tokens},
+            "cancelled": CANCEL_EVENT.is_set(),
+        }
+    finally:
+        if thread.is_alive():
+            CANCEL_EVENT.set()
+            thread.join(timeout=5)
+        CANCEL_EVENT.clear()
 
 
 class WorkerHandler(BaseHTTPRequestHandler):
@@ -188,6 +265,28 @@ class WorkerHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
+
+    def _stream(self, events: Any) -> None:
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.close_connection = True
+        try:
+            for event in events:
+                data = json.dumps(event, ensure_ascii=False).encode("utf-8") + b"\n"
+                self.wfile.write(data)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            CANCEL_EVENT.set()
+        except Exception as exc:
+            try:
+                data = json.dumps({"type": "error", "error": str(exc)}, ensure_ascii=False).encode("utf-8") + b"\n"
+                self.wfile.write(data)
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                CANCEL_EVENT.set()
 
     def _body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0") or 0)
@@ -210,6 +309,11 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 self._json(HTTPStatus.OK, load_model(body))
             elif self.path == "/chat":
                 self._json(HTTPStatus.OK, chat(body))
+            elif self.path == "/chat/stream":
+                self._stream(stream_chat(body))
+            elif self.path == "/cancel":
+                CANCEL_EVENT.set()
+                self._json(HTTPStatus.OK, {"ok": True})
             elif self.path == "/shutdown":
                 self._json(HTTPStatus.OK, {"ok": True})
                 if SERVER:
@@ -232,4 +336,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

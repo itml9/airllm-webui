@@ -49,6 +49,29 @@ class AppHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _stream_chat(self, payload: dict[str, Any]) -> None:
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.send_header("Connection", "close")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        self.close_connection = True
+        try:
+            for event in WORKER.stream_request("POST", "/chat/stream", payload, timeout=24 * 60 * 60):
+                data = json.dumps(event, ensure_ascii=False).encode("utf-8") + b"\n"
+                self.wfile.write(data)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            WORKER.cancel_generation()
+        except Exception as exc:
+            try:
+                data = json.dumps({"type": "error", "error": str(exc)}, ensure_ascii=False).encode("utf-8") + b"\n"
+                self.wfile.write(data)
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                WORKER.cancel_generation()
+
     def _read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0") or 0)
         if length <= 0:
@@ -163,6 +186,20 @@ class AppHandler(BaseHTTPRequestHandler):
                 }
                 result = WORKER.request("POST", "/chat", payload, timeout=24 * 60 * 60)
                 self._send_json(HTTPStatus.OK, result)
+            elif path == "/api/chat/stream":
+                config = load_config()
+                payload = {
+                    "messages": body.get("messages") or [],
+                    "max_seq_len": config.get("max_seq_len"),
+                    "max_new_tokens": config.get("max_new_tokens"),
+                    "temperature": config.get("temperature"),
+                    "top_p": config.get("top_p"),
+                    "repetition_penalty": config.get("repetition_penalty"),
+                }
+                self._stream_chat(payload)
+            elif path == "/api/chat/cancel":
+                WORKER.cancel_generation()
+                self._send_json(HTTPStatus.OK, {"ok": True})
             else:
                 self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
         except ValueError as exc:
@@ -203,4 +240,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

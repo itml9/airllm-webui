@@ -16,7 +16,8 @@
 - 按需安装 PyTorch、AirLLM 和 bitsandbytes，并显示后台任务日志。
 - 配置 Hugging Face 镜像、HTTP/HTTPS 代理、访问 Token、缓存目录和 AirLLM 分层目录。
 - 显示模型下载、分层准备和模型加载进度。
-- GPT 风格本地问答页面，支持新对话、快捷提问、Enter 发送和 Shift+Enter 换行。
+- GPT 风格本地问答页面，支持流式显示回答、新对话、快捷提问、Enter 发送和 Shift+Enter 换行。
+- 生成过程中可以点击停止按钮，已经生成的部分回答会保留在对话中。
 - 配置页和问答页支持中文 / English，语言选择会自动保存到本机。
 - 主服务和推理 worker 默认只绑定 `127.0.0.1`。
 

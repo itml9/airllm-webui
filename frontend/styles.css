@@ -202,6 +202,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .composer textarea:focus { box-shadow: none; }
 .send-button { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border: 0; border-radius: 6px; color: white; background: var(--accent); }
 .send-button:hover:not(:disabled) { background: var(--accent-dark); }
+.send-button.is-stop { background: var(--danger); }
+.send-button.is-stop:hover { background: #a94444; }
+.send-button.is-stop svg { width: 14px; height: 14px; fill: currentColor; }
 .composer-meta { display: flex; justify-content: space-between; gap: 12px; padding: 8px 3px 0; color: var(--text-faint); font-size: 10px; }
 
 .toast-region { position: fixed; right: 22px; bottom: 22px; z-index: 20; display: grid; gap: 8px; max-width: min(390px, calc(100vw - 44px)); }
